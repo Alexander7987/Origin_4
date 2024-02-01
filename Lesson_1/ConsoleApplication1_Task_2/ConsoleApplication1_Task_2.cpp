@@ -7,14 +7,10 @@
 
 void sum(std::vector<int> vector_1, std::vector<int> vector_2, std::vector<int>& vector_3, int num_thread, int count, int tempp) // num_thread - номер текущего потока
 {
-    auto iter = vector_3.begin();
     int q = 0;
 
     for (q = (num_thread - 1) * count; q < tempp; q++) // Цикл записи результатов сложения в третий вектор. Допустим, если 4 потока, то 0-249(включительно), далее 250-499(включительно) и т.д.
     {
-        if (q == 0) // т.к. добавление через emplase идет ПОСЛЕ обозначенного элемента под цифрой "n" если указываем как "iter + n", где n!=0, то для n!=0 указываем через else отдельно
-            vector_3.push_back(vector_1[q] + vector_2[q]);
-        else
             vector_3.push_back(vector_1[q] + vector_2[q]);
     }
     //такие условия и сам цикл из-за того, что потоки будут работать одновременно, и один не будет ждать, пока другой закончит. Поэтому, в цикле предусмотрено 
