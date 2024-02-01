@@ -11,9 +11,8 @@ void sum(std::vector<int> vector_1, std::vector<int> vector_2, std::vector<int>&
 
     for (q = (num_thread - 1) * count; q < tempp; q++) // Цикл записи результатов сложения в третий вектор. Допустим, если 4 потока, то 0-249(включительно), далее 250-499(включительно) и т.д.
     {
-        vector_3[q] = (vector_1[q] + vector_2[q]);
+        vector_3.at(q) = vector_1.at(q) + vector_2.at(q);
     }
-    int y = 0;
 }
 
 
