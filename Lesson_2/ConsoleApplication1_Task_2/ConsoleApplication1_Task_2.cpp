@@ -5,6 +5,7 @@
 #include<atomic>
 #include<vector>
 #include<Windows.h>
+#include<condition_variable>
 
 class consol_parameter
 {
@@ -27,30 +28,36 @@ HANDLE consol_parameter::hStdOut = GetStdHandle(STD_OUTPUT_HANDLE);
 
 std::mutex m;
 
-
-void func(int& count_thread)
+void func(int i, int temp)
 {
-    
-    std::srand(time(0));
-    int temp = 10 + rand() % 200;
-    count_thread++;
-    static int tempp = 1;
-    tempp++;
-    auto start = std::chrono::high_resolution_clock::now();
-    std::cout << count_thread << "   " << std::this_thread::get_id() << "  ";
-    consol_parameter::SetPosition(11, tempp);
-    for (int i = 0; i < 25; i++)
-    {
-        std::this_thread::sleep_for(std::chrono::milliseconds(temp));      
-        std::cout << "@";      
-    }    
+    int j = 0;
+    auto start = std::chrono::high_resolution_clock::now(); 
+    m.lock();
+    consol_parameter::SetPosition(0, i + 2);
+    std::cout << i << "   " << std::this_thread::get_id() << "  ";      
+    m.unlock();
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    for (j = 0; j < 25; j++)
+    {           
+        m.lock();
+        std::this_thread::sleep_for(std::chrono::milliseconds(temp));
+        consol_parameter::SetPosition(j + 11, i + 2);
+        std::cout << "@";
+        m.unlock();
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }  
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> duration = end - start;
-    std::cout << "  " << duration.count() << std::endl;
+    m.lock();    
+    consol_parameter::SetPosition(j + 11, i + 2);
+    std::cout << "   " << duration.count() << std::endl;
+    m.unlock();  
 }
 
 int main()
 {
+    std::srand(time(0));
+    int temp = 0;
     int count_thread = -1;
     int amount_threads = 0;
     std::vector<std::thread> vector_threads;
@@ -58,12 +65,18 @@ int main()
     std::cin >> amount_threads;
     std::cout << "#   id           Progress Bar           Time" << std::endl;
     for (int i = 0; i < amount_threads; i++)
-    {       
-        vector_threads.push_back(std::thread(func, std::ref(count_thread)));
-    }
+    {     
+        temp = 10 + rand() % 50;
+        vector_threads.push_back(std::thread(func, i, temp));
+    }  
     for (auto& t : vector_threads)
     {
-        t.join();
+        t.join();      
     }
+    for (int y = 0; y < amount_threads; y++)
+    {
+        std::cout << std::endl;
+    }
+    //std::cout << std::endl << std::endl << std::endl << std::endl << std::endl << std::endl << std::endl << std::endl;
     return 0;
 }
