@@ -37,8 +37,7 @@ public:
 
 void swap_1(Data& var_1, Data& var_2)
 {
-    var_1.m.lock();
-    var_2.m.lock();
+    std::lock(var_1.m, var_2.m);
     Data temp(9);
     temp = std::move(var_1);
     var_1 = std::move(var_2);
@@ -58,8 +57,9 @@ void swap_2(Data& var_1, Data& var_2)
 
 void swap_3(Data& var_1, Data& var_2)
 {
-    std::unique_lock ul_1(var_1.m);
-    std::unique_lock ul_2(var_2.m);
+    std::unique_lock ul_1(var_1.m, std::defer_lock);
+    std::unique_lock ul_2(var_2.m, std::defer_lock);
+    std::lock(ul_1, ul_2);
     Data temp(9);
     temp = std::move(var_1);
     var_1 = std::move(var_2);
