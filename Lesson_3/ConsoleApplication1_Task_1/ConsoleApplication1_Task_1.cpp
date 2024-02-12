@@ -2,7 +2,7 @@
 #include <vector>
 #include <future>
 
-void sort(std::vector<int>& numbers, int size, int start, std::promise<int>& prom)
+void min(std::vector<int>& numbers, int size, int start, std::promise<int>& prom)
 {
     int temp = 0;
     int min = numbers[start];
@@ -12,9 +12,30 @@ void sort(std::vector<int>& numbers, int size, int start, std::promise<int>& pro
         {
             temp = i;
             min = numbers[i];
-        }            
+        }
     }
     prom.set_value(temp);
+}
+
+
+void sort(std::vector<int>& numbers, int size)
+{
+
+    for (int i = 0; i < size; i++)
+    {
+        int k = 0; //сюда записываем индекс min элемента, как результат работы асинхронной функции по поиску min элемента
+        int w = 0; // буфер для смены местами элементов
+
+        std::promise<int> prom; //переопределяем переменные по новой, чтобы обновлялась связь между фьючер и промис, иначе пееременная k будет одним и тем же значением каждую новую итерацию
+        std::future<int> f = prom.get_future();
+        auto ff = std::async(min, std::ref(numbers), size, i, std::ref(prom));
+        k = f.get();
+
+        w = numbers[k];
+        numbers[k] = numbers[i];
+        numbers[i] = w;
+    }
+
 }
 
 
@@ -35,25 +56,12 @@ int main()
         numbers[i] = 0 + rand() % 11;
     }
 
-
     for (auto& t : numbers)
     {
         std::cout << t << " ";
     }
 
-
-    for (int i = 0; i < n; i++)
-    {
-        std::promise<int> prom; //переопределяем переменные по новой, чтобы обновлялась связь между фьючер и промис, иначе пееременная k будет одним и тем же значением каждую новую итерацию
-        std::future<int> f = prom.get_future();
-
-        auto ff = std::async(sort, std::ref(numbers), n, i, std::ref(prom));
-        k = f.get();
-        w = numbers[k];
-        numbers[k] = numbers[i];
-        numbers[i] = w;
-    }
-
+    sort(numbers, n);
 
     std::cout << std::endl;
     for (auto& t : numbers)
