@@ -1,6 +1,7 @@
 ﻿#include <iostream>
 
-class line
+
+class Shape
 {
 public:
 	int type = 0;
@@ -8,7 +9,10 @@ public:
 	int b = 0;
 	int c = 0;
 
-	int getType();
+	int getType()
+	{
+		return type;
+	}
 
 	int x1 = 0, y1 = 0, z1 = 0,
 		x2 = 0, y2 = 0, z2 = 0,
@@ -25,7 +29,7 @@ public:
 	double radius;
 
 
-	line(int _type, int _x1, int _y1, int _z1, int _x2, int _y2)
+	Shape(int _type, int _x1, int _y1, int _z1, int _x2, int _y2)
 	{
 		type = _type;
 		x1 = _x1; y1 = _y1;
@@ -36,7 +40,7 @@ public:
 		b = abs(y1 - y2);
 		c = abs(z1 - z2);
 	}
-	line();
+	Shape();
 	int get_square()
 	{
 		return 0;
@@ -45,7 +49,7 @@ public:
 
 
 
-class sqr : public line
+class sqr : public Shape
 {
 	sqr(int _type, int _x1, int _y1, int _x2, int _y2, int _x3, int _y3, int _x4, int _y4, int _x5, int _y5, int _x6, int _y6, int _x7, int _y7, int _x8, int _y8)
 	{
@@ -68,7 +72,7 @@ class sqr : public line
 };
 
 
-class cube : public line
+class cube : public Shape
 {
 	cube(int _type, int _x1, int _y1, int _z1, int _x2, int _y2, int _z2, int _x3, int _y3, int _z3, int _x4, int _y4, int _z4, int _x5, int _y5, int _z5, int _x6, int _y6, int _z6, int _x7, int _y7, int _z7, int _x8, int _y8, int _z8)
 	{
@@ -95,7 +99,7 @@ class cube : public line
 	}
 };
 
-class circle : public line
+class circle : public Shape
 {
 	circle(int _type, int _x1, int _y1, int R)
 	{
@@ -114,7 +118,7 @@ class circle : public line
 
 
 
-class cylinder : public line
+class cylinder : public Shape
 {
 	cylinder(int _type, int _x1, int _y1, int R, int H)
 	{
@@ -131,6 +135,187 @@ class cylinder : public line
 };
 
 
+
+class transform
+{
+public:
+
+	transform(const Shape& sh);
+	Shape shift(int m, int n, int k);
+	Shape scaleX(int a);
+	Shape scaleY(int d);
+	Shape scaleZ(int e);
+	Shape scale(int s);
+
+	static const int line = 0;
+	static const int sqr = 1;
+	static const int cube = 2;
+	static const int circle = 3;
+	static const int cylinder = 4;
+
+
+	transform(Shape& sh)
+	{
+		type = sh.getType();
+		shape = sh;
+	}
+
+	Shape shift(int m, int n, int k)
+	{
+		switch (type)
+		{
+		case line:
+		case circle:
+		case cylinder:
+			shape.x1 += m; shape.y1 += n;
+			shape.x2 += m; shape.y2 += n;
+			break;
+		case sqr:
+			shape.x1 += m; shape.y1 += n;
+			shape.x2 += m; shape.y2 += n;
+			shape.x3 += m; shape.y3 += n;
+			shape.x4 += m; shape.y4 += n;
+			break;
+		case cube:
+			shape.x1 += m; shape.y1 += n; shape.z1 += k;
+			shape.x2 += m; shape.y2 += n; shape.z2 += k;
+			shape.x3 += m; shape.y3 += n; shape.z3 += k;
+			shape.x4 += m; shape.y4 += n; shape.z4 += k;
+			shape.x5 += m; shape.y5 += n; shape.z5 += k;
+			shape.x6 += m; shape.y6 += n; shape.z6 += k;
+			shape.x7 += m; shape.y7 += n; shape.z7 += k;
+			shape.x8 += m; shape.y8 += n; shape.z8 += k;
+			break;
+		}
+		return shape;
+	}
+
+
+	Shape scaleX(int a)
+	{
+		switch (type)
+		{
+		case line:
+		case circle:
+		case cylinder:
+			shape.x1 *= a;
+			shape.x2 *= a;
+			break;
+		case sqr:
+			shape.x1 *= a;
+			shape.x2 *= a;
+			shape.x3 *= a;
+			shape.x4 *= a;
+			break;
+		case cube:
+			shape.x1 *= a;
+			shape.x2 *= a;
+			shape.x3 *= a;
+			shape.x4 *= a;
+			shape.x5 *= a;
+			shape.x6 *= a;
+			shape.x7 *= a;
+			shape.x8 *= a;
+			break;
+		}
+		return shape;
+	}
+
+	Shape scaleY(int d)
+	{
+		switch (type)
+		{
+		case line:
+		case circle:
+		case cylinder:
+			shape.y1 *= d;
+			shape.y2 *= d;
+			break;
+		case sqr:
+			shape.y1 *= d;
+			shape.y2 *= d;
+			shape.y3 *= d;
+			shape.y4 *= d;
+			break;
+		case cube:
+			shape.y1 *= d;
+			shape.y2 *= d;
+			shape.y3 *= d;
+			shape.y4 *= d;
+			shape.y5 *= d;
+			shape.y6 *= d;
+			shape.y7 *= d;
+			shape.y8 *= d;
+			break;
+		}
+		return shape;
+	}
+
+	Shape scaleZ(int e)
+	{
+		switch (type)
+		{
+		case line:
+		case circle:
+		case cylinder:
+			shape.z1 *= e;
+			shape.z2 *= e;
+			break;
+		case sqr:
+			shape.z1 *= e;
+			shape.z2 *= e;
+			shape.z3 *= e;
+			shape.z4 *= e;
+			break;
+		case cube:
+			shape.z1 *= e;
+			shape.y2 *= e;
+			shape.z3 *= e;
+			shape.z4 *= e;
+			shape.z5 *= e;
+			shape.z6 *= e;
+			shape.z7 *= e;
+			shape.z8 *= e;
+			break;
+		}
+		return shape;
+	}
+
+	Shape scale(int s)
+	{
+		switch (type)
+		{
+		case line:
+		case circle:
+		case cylinder:
+			shape.x1 /= s; shape.y1 /= s;
+			shape.x2 /= s; shape.y2 /= s;
+			break;
+		case sqr:
+			shape.x1 /= s; shape.y1 /= s;
+			shape.x2 /= s; shape.y2 /= s;
+			shape.x3 /= s; shape.y3 /= s;
+			shape.x4 /= s; shape.y4 /= s;
+			break;
+		case cube:
+			shape.x1 /= s; shape.y1 /= s; shape.z1 /= s;
+			shape.x2 /= s; shape.y2 /= s; shape.z2 /= s;
+			shape.x3 /= s; shape.y3 /= s; shape.z3 /= s;
+			shape.x4 /= s; shape.y4 /= s; shape.z4 /= s;
+			shape.x5 /= s; shape.y5 /= s; shape.z5 /= s;
+			shape.x6 /= s; shape.y6 /= s; shape.z6 /= s;
+			shape.x7 /= s; shape.y7 /= s; shape.z7 /= s;
+			shape.x8 /= s; shape.y8 /= s; shape.z8 /= s;
+			break;
+		}
+
+		return shape;
+	}
+
+private:
+	Shape shape;
+	int type = 0;
+};
 
 
 
