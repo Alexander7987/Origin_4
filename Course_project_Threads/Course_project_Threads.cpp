@@ -7,7 +7,7 @@
 #include <condition_variable>
 
 std::mutex m1;
-std::mutex m2;
+bool flag = false;
 
 void func1()
 {
@@ -23,9 +23,10 @@ void func2()
 
 class safe_queue
 {
+public:
     std::queue<std::function<void()>> my_q;
     std::condition_variable data_cond;
-public:
+
     void push(std::function<void()> func)
     {
         std::lock_guard<std::mutex> lk(m1);
@@ -73,10 +74,16 @@ public:
 
     void work()
     {
-        std::cout << std::this_thread::get_id() << std::endl;
-        auto temp_func = my_queue.front();
-        temp_func();
-        my_queue.pop();
+        while (!flag)
+        {
+            if (!my_queue.my_q.empty())
+            {
+                std::cout << std::this_thread::get_id() << std::endl;
+                auto temp_func = my_queue.front();
+                temp_func();
+                my_queue.pop();
+            }
+        }
     }
 
     void submit(std::function<void()> func)
