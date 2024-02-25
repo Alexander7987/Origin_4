@@ -6,17 +6,11 @@
 #include <queue>
 #include <condition_variable>
 
-std::mutex m1;
-std::mutex m2;
-std::condition_variable data_cond2;
-bool flag = false;
 
 void func1()
 {
-    static int t = 0;
-    std::cout << "Working: " << __FUNCTION__ << " " << t++ << " " << std::endl;
+    std::cout << "Working: " << __FUNCTION__ << " " << std::endl;
 }
-
 
 void func2()
 {
@@ -27,116 +21,94 @@ void func2()
 class safe_queue
 {
 public:
-    std::queue<std::function<void()>> my_q;
+    std::mutex temp_mutex2;
     std::condition_variable data_cond;
+    std::queue<std::function<void()>> my_q;
 
     void push(std::function<void()> func)
     {
-        std::lock_guard<std::mutex> lkk(m2);
+        std::lock_guard<std::mutex> lock_guard(temp_mutex2);
         my_q.push(func);
-        //data_cond.notify_all();
+        data_cond.notify_all();
     }
 
-    /*
     std::function<void()> front()
     {
-        std::lock_guard<std::mutex> lkk(m2);
+        std::lock_guard<std::mutex> lock_guard(temp_mutex2);
         return my_q.front();
     }
-    */
 
     void pop()
     {
-        std::unique_lock<std::mutex> lkk(m2);
-        //data_cond.wait(lkk, [&]() {
-            //return !my_q.empty();
-            //});
+        std::lock_guard<std::mutex> lock_guard(temp_mutex2);
         my_q.pop();
     }
 };
 
 
 
-class thread_pool
-{ 
-public:   
-    std::vector<std::thread> my_threads;
-    safe_queue my_queue;
+class thread_pool : public safe_queue
+{
+private:
+    std::vector<std::thread> threads_pool;
+    safe_queue temp_safe_queue;
+    std::mutex temp_mutex1;
 
-    thread_pool(int cores)
+public:
+    thread_pool(int cores) : threads_pool(cores)
     {
-        my_threads.resize(cores);
+        threads_pool[0] = std::thread(&thread_pool::submit, this, func1);
+        threads_pool[1] = std::thread(&thread_pool::submit, this, func2);
+
+        for (int i = 2; i < cores; i++)
+        {
+            threads_pool[i] = std::thread(&thread_pool::work, this);
+        }
     }
 
     ~thread_pool()
     {
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < 8; i++)
         {
-            my_threads[i].join();
+            threads_pool[i].join();
         }
-        my_threads.clear();
     }
 
     void work()
     {
-        std::unique_lock<std::mutex> lk(m1);
-        data_cond2.wait(lk, [&]() {
-            return !my_queue.my_q.empty();
-            });
-        while (!my_queue.my_q.empty())
+        while (true)
         {
-            //std::this_thread::sleep_for(std::chrono::milliseconds(200));             
+            //std::cout << "df";
+            std::unique_lock<std::mutex>  lock_guard(temp_mutex2);
+            data_cond.wait(lock_guard, [&]() {
+                return !temp_safe_queue.my_q.empty();
+                });
             std::cout << std::this_thread::get_id() << std::endl;
-            auto& temp_func = my_queue.my_q.front();//my_queue.front();
+            auto temp_func = temp_safe_queue.front();
             temp_func();
-            my_queue.pop();
+            temp_safe_queue.pop();
         }
     }
 
     void submit(std::function<void()> func)
-    {
-        my_queue.push(func);
+    {   
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        for (int i = 0; i < 3; i++)
+        {
+            std::lock_guard<std::mutex> lock_guard(temp_mutex1);
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            temp_safe_queue.push(func);           
+        }
     }
 };
 
 
-void add1(thread_pool my_object)
-{
-    for (int i = 0; i < 3; i++)
-    {
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
-        std::lock_guard<std::mutex> lk(m1);
-        my_object.submit(func1);
-    }
-    data_cond2.notify_all();
-}
-
-
-void add2(thread_pool my_object)
-{
-    for (int i = 0; i < 3; i++)
-    {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-        std::lock_guard<std::mutex> lk(m1);
-        my_object.submit(func2);
-    }
-    data_cond2.notify_all();
-}
 
 int main()
 {
     int cores = std::thread::hardware_concurrency();
     thread_pool my_object(cores);
     std::cout << "Cores: " << cores << std::endl;
-    
-    my_object.my_threads[0] = std::thread(add1, &my_object);
-    //my_object.my_threads[1] = std::thread(add2, &my_object);
-     
-    //std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-    my_object.my_threads[2] = std::thread(&thread_pool::work, &my_object);
-    //my_object.my_threads[3] = std::thread(&thread_pool::work, &my_object);
-
     return 0;
 }
 
@@ -145,6 +117,20 @@ int main()
 
 
 /*
+
+
+    my_object.my_threads[0] = std::thread(add1, std::ref(my_object));
+    my_object.my_threads[1] = std::thread(add2, std::ref(my_object));
+
+    //std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    //std::cout << "df";
+    my_object.my_threads[2] = std::thread(&thread_pool::work, &my_object);
+    my_object.my_threads[3] = std::thread(&thread_pool::work, &my_object);
+
+
+
+
+
 void add1(thread_pool my_object)
 {
     for (int i = 0; i < 10; i++)
@@ -161,7 +147,7 @@ void add2(thread_pool my_object)
     for (int i = 0; i < 10; i++)
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-        std::lock_guard<std::mutex> lk(m1);       
+        std::lock_guard<std::mutex> lk(m1);
         my_object.submit(func2);
     }
 }
