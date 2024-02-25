@@ -78,7 +78,6 @@ public:
     {
         while (true)
         {
-            //std::cout << "df";
             std::unique_lock<std::mutex>  lock_guard(temp_mutex2);
             data_cond.wait(lock_guard, [&]() {
                 return !temp_safe_queue.my_q.empty();
