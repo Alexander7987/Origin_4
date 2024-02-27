@@ -85,6 +85,7 @@ public:
             std::cout << std::this_thread::get_id() << std::endl;
             auto temp_func = temp_safe_queue.front();
             temp_func();
+            lock_guard.unlock();
             temp_safe_queue.pop();
         }
     }
