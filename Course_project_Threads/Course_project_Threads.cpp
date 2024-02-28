@@ -90,7 +90,7 @@ public:
         {
             if (flag)
             {
-                break;
+                return;
             }
             std::lock_guard<std::mutex> lock_guard(m1);
             auto func = que.try_pop();
@@ -117,6 +117,13 @@ int main()
 {
     int cores = std::thread::hardware_concurrency();
     std::cout << "Cores: " << cores << std::endl;
-    thread_pool my_object(cores);
+    try
+    {
+        thread_pool my_object(cores);
+    }
+    catch (std::string e)
+    {
+        std::cout << e;
+    }
     return 0;
 }
