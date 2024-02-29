@@ -1,7 +1,6 @@
 ﻿#include <iostream>
 #include <thread>
 #include <vector>
-#include <future>
 #include <functional>
 #include <queue>
 #include <condition_variable>
@@ -19,7 +18,7 @@ void func2()
 class safe_queue
 {
 private:
-    std::mutex m2; // TODO почему m2? Разве есть m1 или m0?
+    std::mutex m2;
     std::condition_variable data_cond;
     std::queue<std::function<void()>> q;
 
@@ -35,10 +34,9 @@ public:
     {
         std::unique_lock<std::mutex> unique_lock(m2);
         data_cond.wait(unique_lock, [&]()
-                       { return !q.empty(); });
+            { return !q.empty(); });
         auto func = q.front();
         q.pop();
-        unique_lock.unlock(); // TODO unlock не обязателен, у вас он и так вызовится при выходе из функции
         return func;
     }
 };
@@ -48,25 +46,25 @@ class thread_pool
 private:
     std::vector<std::thread> threads_pool;
     safe_queue que;
-    std::mutex m1;     // TODO почему m1? Разве есть m2 или m0?
-    double cores = 0;  // TODO почему double? у вас что число ядер может быть дробное?!:) Нужно использовать size_t, либо если int то проверку на < 0
-    bool flag = false; // TODO не говорящее название флага
+    std::mutex m1;
+    size_t cores = 0;
+    std::atomic<bool> flag_to_exit = false;
 
 public:
-    thread_pool(double cores) : cores(cores)
+    thread_pool(size_t cores) : cores(cores)
     {
-        if (cores < 0)
+        if (cores > 40) // а какое число взять, разумное для ограничения?
         {
-            throw "bad index"; // TODO такой тип исключения не используют! Если хотите бросить исключение, создайте свой класс исключения отнаследовавшись от std::exception
+            throw std::exception();
         }
         else
-            threads_pool.resize(cores); // TODO а если cores > 100_000_000_000 вы выделите 100ГБ памяти?
+            threads_pool.resize(cores);
 
         threads_pool[0] = std::thread(&thread_pool::submit, this, func1);
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
         threads_pool[1] = std::thread(&thread_pool::submit, this, func2);
 
-        for (int i = 2; i < cores; i++) // TODO неявное приведение типов с таким типом cores! Никогда так не делайте
+        for (size_t i = 2; i < cores; i++)
         {
             threads_pool[i] = std::thread(&thread_pool::work, this);
         }
@@ -74,21 +72,24 @@ public:
 
     ~thread_pool()
     {
-        for (int i = 0; i < cores; i++)
+        for (int i = 0; i < cores; ++i)
         {
+            if (i == 1)
+            {
+                flag_to_exit = true; // первые два потока добавляют функции в очередь. При окончании работы последнего (вторым, в данном случае) потоком ставим флаг в true;
+            }
             threads_pool[i].join();
         }
     }
 
     void work()
-    {
+    {       
         while (true)
         {
-            if (flag) // DATA RACE. Флаг должен быть атомарным!
+            if (flag_to_exit)
             {
                 return;
             }
-            std::lock_guard<std::mutex> lock_guard(m1);
             auto func = que.try_pop();
             std::cout << std::this_thread::get_id() << std::endl;
             func();
@@ -103,7 +104,6 @@ public:
             std::this_thread::sleep_for(std::chrono::milliseconds(500));
             que.push(func);
         }
-        flag = true; // TODO BAD DESIGN. Флаг надо устанавливать в деструкторе
     }
 };
 
@@ -115,9 +115,9 @@ int main()
     {
         thread_pool my_object(cores);
     }
-    catch (std::string e) // TODO вы бросаете здесь тип const char* и не отлавливаете его, соответственно будет abort если возникнет исключение
+    catch (const std::exception& ex)
     {
-        std::cout << e;
+        std::cout << ex.what();
     }
     return 0;
 }
