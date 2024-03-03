@@ -24,6 +24,7 @@ const char *thpool_except::what() const noexcept
     return _msg.c_str();
 };
 
+
 void func1()
 {
     std::cout << "Working: " << __FUNCTION__ << " " << std::endl;
@@ -50,10 +51,13 @@ public:
     }
 
     std::function<void()> try_pop()
-    {
+    {       
+        if (q.empty())
+            std::this_thread::yield();
         std::unique_lock<std::mutex> unique_lock(m);
         data_cond.wait(unique_lock, [&]()
-                       { return !q.empty(); });
+            {  return !q.empty();
+                 });  
         auto func = q.front();
         q.pop();
         return func;
@@ -82,6 +86,7 @@ public:
         threads_pool[0] = std::thread(&thread_pool::submit, this, func1);
         threads_pool[1] = std::thread(&thread_pool::submit, this, func2);
 
+
         for (size_t i = 2; i < cores; i++)
         {
             threads_pool[i] = std::thread(&thread_pool::work, this);
@@ -90,10 +95,12 @@ public:
 
     ~thread_pool()
     {
-        exit = true;
-        for (int i = 0; i < cores; ++i)
+        for (size_t i = 0; i < cores; i++)
         {
-
+            if (i == 1)
+            {
+                exit = true;
+            }
             threads_pool[i].join();
         }
     }
@@ -105,17 +112,18 @@ public:
             if (exit.load())
             {
                 return;
-            }
+            }   
+            //std::lock_guard<std::mutex> lock_guard(m);
             auto func = que.try_pop();
-            std::lock_guard lk(m);
-            func();
-        }
+            std::cout << std::this_thread::get_id() << std::endl;
+            func();  
+        } 
     }
 
     void submit(std::function<void()> func)
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-        for (int i = 0; i < 3; i++)
+        for (int i = 0; i < 1; i++)
         {
             std::this_thread::sleep_for(std::chrono::milliseconds(500));
             que.push(func);
@@ -137,4 +145,3 @@ int main()
     }
     return 0;
 }
-//
