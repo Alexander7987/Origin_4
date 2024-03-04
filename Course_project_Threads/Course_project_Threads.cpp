@@ -101,7 +101,8 @@ public:
             {
                 exit = true;
             }
-            threads_pool[i].join();
+            if (threads_pool[i].joinable())
+                threads_pool[i].join();
         }
     }
 
@@ -113,7 +114,6 @@ public:
             {
                 return;
             }   
-            //std::lock_guard<std::mutex> lock_guard(m);
             auto func = que.try_pop();
             std::cout << std::this_thread::get_id() << std::endl;
             func();  
@@ -138,6 +138,7 @@ int main()
     try
     {
         thread_pool my_object(cores);
+        my_object.~thread_pool();
     }
     catch (const std::exception &ex)
     {
