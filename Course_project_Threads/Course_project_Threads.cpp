@@ -13,13 +13,13 @@ class thpool_except : public std::exception
 
 public:
     thpool_except();
-    thpool_except(const std::string &msg);
-    virtual const char *what() const noexcept override;
+    thpool_except(const std::string& msg);
+    virtual const char* what() const noexcept override;
 };
 
-thpool_except::thpool_except() : _msg("Thread pool exception!"){};
-thpool_except::thpool_except(const std::string &msg) : _msg(msg){};
-const char *thpool_except::what() const noexcept
+thpool_except::thpool_except() : _msg("Thread pool exception!") {};
+thpool_except::thpool_except(const std::string& msg) : _msg(msg) {};
+const char* thpool_except::what() const noexcept
 {
     return _msg.c_str();
 };
@@ -51,13 +51,11 @@ public:
     }
 
     std::function<void()> try_pop()
-    {       
-        if (q.empty())
-            std::this_thread::yield();
+    {
         std::unique_lock<std::mutex> unique_lock(m);
         data_cond.wait(unique_lock, [&]()
             {  return !q.empty();
-                 });  
+            });
         auto func = q.front();
         q.pop();
         return func;
@@ -71,7 +69,8 @@ private:
     safe_queue que;
     std::mutex m;
     size_t cores = 0;
-    std::atomic<bool> exit{false};
+    int counter = 0;
+    std::atomic<bool> exit{ false };
 
 public:
     thread_pool(size_t cores) : cores(cores)
@@ -86,7 +85,6 @@ public:
         threads_pool[0] = std::thread(&thread_pool::submit, this, func1);
         threads_pool[1] = std::thread(&thread_pool::submit, this, func2);
 
-
         for (size_t i = 2; i < cores; i++)
         {
             threads_pool[i] = std::thread(&thread_pool::work, this);
@@ -97,10 +95,6 @@ public:
     {
         for (size_t i = 0; i < cores; i++)
         {
-            if (i == 1)
-            {
-                exit = true;
-            }
             if (threads_pool[i].joinable())
                 threads_pool[i].join();
         }
@@ -108,25 +102,26 @@ public:
 
     void work()
     {
-        while (true)
+        while (!exit.load())
         {
-            if (exit.load())
-            {
-                return;
-            }   
             auto func = que.try_pop();
             std::cout << std::this_thread::get_id() << std::endl;
-            func();  
-        } 
+            func();
+        }
+        return;
     }
 
     void submit(std::function<void()> func)
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-        for (int i = 0; i < 1; i++)
+        for (int i = 0; i < 3; i++) //добавляю 6 функций в очередь, т.е. кол-во потоков * на кол-во итераций данного цикла
         {
-            std::this_thread::sleep_for(std::chrono::milliseconds(500));
             que.push(func);
+            counter++;
+        }
+        if (counter == 6)
+        {
+            exit = true;
         }
     }
 };
@@ -138,9 +133,8 @@ int main()
     try
     {
         thread_pool my_object(cores);
-        my_object.~thread_pool();
     }
-    catch (const std::exception &ex)
+    catch (const std::exception& ex)
     {
         std::cout << ex.what();
     }
