@@ -1,10 +1,28 @@
 ﻿#include <iostream>
 #include <thread>
 #include <vector>
-#include <future>
 #include <functional>
 #include <queue>
 #include <condition_variable>
+#include <atomic>
+#include <exception>
+
+class thpool_except : public std::exception
+{
+    std::string _msg;
+
+public:
+    thpool_except();
+    thpool_except(const std::string& msg);
+    virtual const char* what() const noexcept override;
+};
+
+thpool_except::thpool_except() : _msg("Thread pool exception!") {};
+thpool_except::thpool_except(const std::string& msg) : _msg(msg) {};
+const char* thpool_except::what() const noexcept
+{
+    return _msg.c_str();
+};
 
 
 void func1()
@@ -17,50 +35,57 @@ void func2()
     std::cout << "Working: " << __FUNCTION__ << std::endl;
 }
 
-
 class safe_queue
 {
-public:
-    std::mutex temp_mutex2;
+private:
+    std::mutex m;
     std::condition_variable data_cond;
-    std::queue<std::function<void()>> my_q;
+    std::queue<std::function<void()>> q;
 
+public:
     void push(std::function<void()> func)
     {
-        std::lock_guard<std::mutex> lock_guard(temp_mutex2);
-        my_q.push(func);
+        std::lock_guard<std::mutex> lock_guard(m);
+        q.push(func);
         data_cond.notify_all();
     }
 
-    std::function<void()> front()
+    std::function<void()> try_pop()
     {
-        std::lock_guard<std::mutex> lock_guard(temp_mutex2);
-        return my_q.front();
-    }
-
-    void pop()
-    {
-        std::lock_guard<std::mutex> lock_guard(temp_mutex2);
-        my_q.pop();
+        std::unique_lock<std::mutex> unique_lock(m);
+        data_cond.wait(unique_lock, [&]()
+            {  return !q.empty();
+            });
+        auto func = q.front();
+        q.pop();
+        return func;
     }
 };
 
-
-
-class thread_pool : public safe_queue
+class thread_pool
 {
 private:
     std::vector<std::thread> threads_pool;
-    safe_queue temp_safe_queue;
-    std::mutex temp_mutex1;
+    safe_queue que;
+    std::mutex m;
+    size_t cores = 0;
+    int counter = 0;
+    std::atomic<bool> exit{ false };
 
 public:
-    thread_pool(int cores) : threads_pool(cores)
+    thread_pool(size_t cores) : cores(cores)
     {
+        if (cores > 100)
+        {
+            throw thpool_except("cores>100");
+        }
+        else
+            threads_pool.resize(cores);
+
         threads_pool[0] = std::thread(&thread_pool::submit, this, func1);
         threads_pool[1] = std::thread(&thread_pool::submit, this, func2);
 
-        for (int i = 2; i < cores; i++)
+        for (size_t i = 2; i < cores; i++)
         {
             threads_pool[i] = std::thread(&thread_pool::work, this);
         }
@@ -68,87 +93,50 @@ public:
 
     ~thread_pool()
     {
-        for (int i = 0; i < 8; i++)
+        for (size_t i = 0; i < cores; i++)
         {
-            threads_pool[i].join();
+            if (threads_pool[i].joinable())
+                threads_pool[i].join();
         }
     }
 
     void work()
     {
-        while (true)
+        while (!exit.load())
         {
-            //std::cout << "df";
-            std::unique_lock<std::mutex>  lock_guard(temp_mutex2);
-            data_cond.wait(lock_guard, [&]() {
-                return !temp_safe_queue.my_q.empty();
-                });
+            auto func = que.try_pop();
             std::cout << std::this_thread::get_id() << std::endl;
-            auto temp_func = temp_safe_queue.front();
-            temp_func();
-            temp_safe_queue.pop();
+            func();
         }
+        return;
     }
 
     void submit(std::function<void()> func)
-    {   
+    {
         std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-        for (int i = 0; i < 3; i++)
+        for (int i = 0; i < 3; i++) //добавляю 6 функций в очередь, т.е. кол-во потоков * на кол-во итераций данного цикла
         {
-            std::lock_guard<std::mutex> lock_guard(temp_mutex1);
-            std::this_thread::sleep_for(std::chrono::milliseconds(500));
-            temp_safe_queue.push(func);           
+            que.push(func);
+            counter++;
+        }
+        if (counter == 6)
+        {
+            exit = true;
         }
     }
 };
 
-
-
 int main()
 {
     int cores = std::thread::hardware_concurrency();
-    thread_pool my_object(cores);
     std::cout << "Cores: " << cores << std::endl;
+    try
+    {
+        thread_pool my_object(cores);
+    }
+    catch (const std::exception& ex)
+    {
+        std::cout << ex.what();
+    }
     return 0;
 }
-
-
-
-
-
-/*
-
-
-    my_object.my_threads[0] = std::thread(add1, std::ref(my_object));
-    my_object.my_threads[1] = std::thread(add2, std::ref(my_object));
-
-    //std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    //std::cout << "df";
-    my_object.my_threads[2] = std::thread(&thread_pool::work, &my_object);
-    my_object.my_threads[3] = std::thread(&thread_pool::work, &my_object);
-
-
-
-
-
-void add1(thread_pool my_object)
-{
-    for (int i = 0; i < 10; i++)
-    {
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
-        std::lock_guard<std::mutex> lk(m1);
-        my_object.submit(func1);
-    }
-}
-
-
-void add2(thread_pool my_object)
-{
-    for (int i = 0; i < 10; i++)
-    {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-        std::lock_guard<std::mutex> lk(m1);
-        my_object.submit(func2);
-    }
-}
-*/
